@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Language Comprehension Experiment</title>
+    <script src="https://unpkg.com/jspsych@7.3.1"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@1.1.2"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-html-button-response@1.1.2"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-survey-text@1.1.2"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-preload@1.1.2"></script>
+    <script src="https://unpkg.com/@jspsych-contrib/plugin-pipe"></script>
+    <link href="https://unpkg.com/jspsych@7.3.1/css/jspsych.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
+
+    <style>
+        /* ---- Shared passage container ---- */
+
+        .sentence-container {
+            font-size: 24px;
+            line-height: 2.5;
+            margin: 40px;
+            text-align: center;
+            max-width: 2000px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* ---- Baseline passage styles (matches BubbleSem_Baseline/experiment.html) ---- */
+
+        .baseline-passage .word {
+            display: inline;
+        }
+
+        .baseline-passage .word.target {
+            font-weight: bold;
+        }
+
+        .baseline-passage .word.article {
+            background-color: transparent;
+            border: none;
+            cursor: default;
+        }
+
+        /* ---- Sampling passage styles (matches BubbleSem/experiment.html) ---- */
+
+        .sampling-passage .word {
+            line-height: 1.5;
+            margin: 0 5px;
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+            display: inline-block;
+        }
+
+        .sampling-passage .word.clickable {
+            background-color: #e0e0e0;
+            border: 2px solid #ccc;
+        }
+
+        .sampling-passage .word.clickable:hover {
+            background-color: #d0d0d0;
+            border-color: #999;
+        }
+
+        .sampling-passage .word.revealed {
+            background-color: #c8e6c9;
+            border: 2px solid #4caf50;
+            cursor: default;
+        }
+
+        .sampling-passage .word.target {
+            font-weight: bold;
+            background-color: transparent;
+            border: none;
+            cursor: default;
+        }
+
+        .sampling-passage .word.article {
+            background-color: transparent;
+            border: none;
+            cursor: default;
+        }
+
+        /* ---- Controls ---- */
+
+        .controls {
+            margin: 30px 0;
+            text-align: center;
+        }
+
+        .guess-button {
+            background-color: #2196f3;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 0 10px;
+        }
+
+        .guess-button:hover    { background-color: #1976d2; }
+        .guess-button:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        .reveal-button {
+            background-color: #ff9800;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 0 10px;
+        }
+
+        .reveal-button:hover    { background-color: #e65100; }
+        .reveal-button:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        /* ---- Points counter (sampling section only) ---- */
+
+        .points-counter {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            padding: 15px 25px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            z-index: 1000;
+            transition: color 0.3s ease;
+        }
+
+        /* ---- Trial counter ---- */
+
+        .trial-counter {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        /* ---- Instructions text ---- */
+
+        .instructions {
+            max-width: 1500px;
+            margin: 0 auto 30px auto;
+            text-align: left;
+            font-size: 16px;
+            line-height: 2;
+        }
+
+        /* ---- Open-ended passage (Phase 2) ---- */
+
+        .open-ended-passage {
+            font-size: 20px;
+            line-height: 1.8;
+            text-align: left;
+            max-width: 720px;
+            margin: 30px auto 0 auto;
+            padding: 20px 28px;
+            background: #fafafa;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+        }
+
+        .open-ended-question {
+            max-width: 720px;
+            margin: 24px auto 0 auto;
+            text-align: left;
+        }
+
+        .open-ended-question label {
+            display: block;
+            font-size: 17px;
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+
+        .open-ended-question textarea {
+            width: 100%;
+            font-size: 16px;
+            padding: 10px 12px;
+            border: 1px solid #bbb;
+            border-radius: 5px;
+            resize: vertical;
+            box-sizing: border-box;
+            font-family: inherit;
+            line-height: 1.5;
+        }
+
+        .open-ended-question textarea:focus {
+            outline: none;
+            border-color: #2196f3;
+            box-shadow: 0 0 0 2px rgba(33,150,243,0.2);
+        }
+    </style>
+</head>
+<body>
+    <script src="experiment_v2.js"></script>
+</body>
+</html>
