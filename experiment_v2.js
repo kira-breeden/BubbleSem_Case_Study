@@ -1,25 +1,25 @@
 // ============================================================
-// BubbleSem v2 — Two-Section Experiment
+// BubbleSem v2 — Three-Section Experiment
 //
 // Section 1 (Baseline): some_masked + most_masked trials shuffled
-//   - All 20 target words shown with 20% or 40% of nonce words revealed
+//   - Target words shown with 20% or 40% of nonce words revealed
 //   - No reveal interactivity; participant makes guess when ready
 //
-// Section 2 (Open-Ended): longer passages loaded from open_ended_passages.csv
+// Section 2 (Sampling): interactive click-to-reveal trials
+//   - All nonce words are clickable; each reveal deducts points
+//   - Participant reveals as few words as needed, then guesses
+//
+// Section 3 (Open-Ended): longer passages
 //   - Participant reads each passage and answers an open-ended question
 //     about what the passage is about
 //   - Response and timing recorded; no target-word guessing
 //
-// Note: The prior Section 2 (predetermined trajectory reveal with
-//   points system) is preserved in determined_trajectory.js.
-//
 // CSV files required:
-//   trial_lists/sublist_X.csv  — 20 Phase 1 baseline trials (varies by sublist)
-//     columns: phase, target_word, passage_variant, jabber_passage,
-//              target_word_position, masking_level, unmasked_word_indices,
-//              entropy, target_probability, ...
-//   open_ended_passages.csv  — Phase 2 longer passages (same for all participants)
-//     columns: passage_id, longer_passage
+//   trial_lists/sublist_X.csv  — baseline + sampling trials (varies by sublist)
+//     columns: condition, target_word, real_passage, jabber_passage,
+//              target_word_position, unmasked_word_indices,
+//              entropy, target_probability, trial_number, ...
+//     condition values: some_masked | most_masked | sampling | open_ended
 //
 // URL parameters:
 //   sublist=1..8  (default: 1)
@@ -29,10 +29,12 @@
 // ===== GLOBAL STATE =====
 
 let baselineTrialData = [];
+let samplingTrialData = [];
 let phase2TrialData   = [];
 let trialSequenceData = {};   // accumulates data across a trial's screens
 let consolidatedTrials = [];  // all saved trial rows
 let startTime = null;
+let firstKeystrokeTime = null;  // time from passage appearing to first keypress in guess/response box
 
 // Words that are always shown as real (never masked)
 const ARTICLES = ['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at',
@@ -181,20 +183,28 @@ function arrayToCSV(data) {
     ].join('\n');
 }
 
+// Flash the points counter red briefly when points are deducted.
+function updatePointsDisplay(points) {
+    const el = document.getElementById('points-counter');
+    if (!el) return;
+    el.textContent = `Trial Points: ${Math.round(points)}`;
+    el.style.color = '#d32f2f';
+    setTimeout(() => { el.style.color = '#333'; }, 300);
+}
+
 // ===== CONDITION ASSIGNMENT =====
 
-const EXPERIMENT_ID = 'PYSjeESL3lfq';
+const EXPERIMENT_ID = 'HoczkSg9UdDc';
 const N_SUBLISTS    = 8;
 
 // Returns a sublist number (1–8).
 // If ?sublist= is in the URL, uses that.
 // Otherwise calls the DataPipe condition assignment API for counterbalanced assignment.
 async function assignSublist() {
-    const param  = getURLParameter('sublist');
-    const parsed = parseInt(param);
-    if (param && parsed >= 1 && parsed <= N_SUBLISTS) {
-        console.log(`Sublist from URL: ${parsed}`);
-        return parsed;
+    const param = getURLParameter('sublist');
+    if (param) {
+        console.log(`Sublist from URL: ${param}`);
+        return param;
     }
 
     try {
@@ -249,25 +259,89 @@ function loadCSV(csvFilename) {
 }
 
 async function loadAllTrialData() {
-    const allTrials = await loadCSV(`trial_lists/sublist_${sublistNumber}.csv`);
+    const allTrials = await loadCSV(`trial_lists/${sublistNumber}.csv`);
 
     const baseline  = allTrials.filter(t => t.condition === 'some_masked' || t.condition === 'most_masked');
+    const sampling  = allTrials.filter(t => t.condition === 'sampling');
     const openEnded = allTrials.filter(t => t.condition === 'open_ended');
 
-    // Shuffle each phase independently with seeded RNG
+    // Shuffle each section independently with seeded RNG
     const rng = new SeededRandom(randomSeed);
     baselineTrialData = rng.shuffle(baseline);
+    samplingTrialData = rng.shuffle(sampling);
     phase2TrialData   = rng.shuffle(openEnded);
 
     console.log(`Baseline trials: ${baselineTrialData.length}`);
-    console.log(`Phase 2 trials:  ${phase2TrialData.length}`);
+    console.log(`Sampling trials: ${samplingTrialData.length}`);
+    console.log(`Open-ended trials: ${phase2TrialData.length}`);
+}
+
+// ===== HARDCODED PRACTICE + ATTENTION CHECK TRIALS =====
+
+const PRACTICE_TRIAL_DATA = [
+    {
+        passageHtml: `The zirps kicked the <span class="word target">blorf</span> across the scrempf. It glashed high prof the deek.`,
+        targetWord: 'ball',
+    },
+    {
+        passageHtml: `She zop dake at the glimp and opened her <span class="word target">glorp</span>. She began to zap quietly.`,
+        targetWord: 'book',
+    },
+];
+
+const ATTENTION_CHECK_DATA = [
+    {
+        passageHtml: `The dog barked loudly at the strange <span class="word target">blorf</span> across the street. Everyone on the block could hear it.`,
+        targetWord: 'cat',
+    },
+    {
+        passageHtml: `She turned on the kitchen <span class="word target">glorp</span> to fill the pot with water. The sound of the cool tap water filling the pot echoed aorund the kitchen.`,
+        targetWord: 'light',
+    },
+];
+
+function createHardcodedTrial(passageHtml, targetWord, trialType, trialNumber) {
+    return {
+        type: jsPsychHtmlButtonResponse,
+        stimulus: function () {
+            startTime = Date.now();
+            firstKeystrokeTime = null;
+            trialSequenceData = {
+                subjCode,
+                sublist:     sublistNumber,
+                random_seed: randomSeed,
+                trial_type:  trialType,
+                trial_number: trialNumber,
+                target_word:  targetWord,
+                condition:    trialType,
+            };
+            return `
+                <div class="sentence-container baseline-passage" id="sentence-container">
+                    ${passageHtml}
+                </div>
+                <div class="controls">
+                    <button class="guess-button" id="guess-btn">Make Guess</button>
+                </div>
+            `;
+        },
+        choices: ['Make Guess'],
+        button_html: '<button class="jspsych-btn" style="display:none;">%choice%</button>',
+        on_load: function () {
+            document.getElementById('guess-btn').addEventListener('click', function () {
+                trialSequenceData.time_before_guess = Date.now() - startTime;
+                jsPsych.finishTrial();
+            });
+        },
+        trial_duration: null,
+        response_ends_trial: false
+    };
 }
 
 // ===== BASELINE TRIAL =====
 // Shows the passage with predetermined masked/unmasked words.
 // No reveal interactivity — participant clicks "Make Guess" when ready.
 
-function createBaselineTrial(trial, sectionTrialIndex, totalBaseline) {
+function createBaselineTrial(trial, sectionTrialIndex, totalBaseline, trialNumber) {
     const realSentence   = trial.real_passage    || '';
     const jabberSentence = trial.jabber_passage  || '';
     const realTokens     = tokenizeSentence(realSentence);
@@ -277,35 +351,13 @@ function createBaselineTrial(trial, sectionTrialIndex, totalBaseline) {
     const targetTokenIdx = wordPosToTokenIndex(jabberTokens, trial.target_word_position);
     const maskingLevel   = trial.condition || 'some_masked';
 
-    // Words that are always unmasked in every condition (specified in the CSV).
-    const alwaysUnmaskedWordPositions = parseJSONColumn(trial.unmasked_word_indices);
-    const alwaysUnmaskedTokenIdxSet = new Set(
-        alwaysUnmaskedWordPositions
+    // Revealed words come entirely from the predetermined list in the CSV.
+    const unmaskedWordPositions = parseJSONColumn(trial.unmasked_word_indices);
+    const unmaskedTokenIdxSet = new Set(
+        unmaskedWordPositions
             .map(pos => wordPosToTokenIndex(jabberTokens, pos))
             .filter(i => i >= 0)
     );
-
-    // Revealable pool: maskable words not already in the always-unmasked set.
-    // some_masked → randomly unmask 20% of pool; most_masked → 40%.
-    const revealFraction = (maskingLevel === 'most_masked') ? 0.40 : 0.20;
-    const allMaskableTokenIndices = getMaskableTokenIndices(jabberTokens, realTokens, targetTokenIdx);
-    const revealablePool = allMaskableTokenIndices.filter(i => !alwaysUnmaskedTokenIdxSet.has(i));
-    const nToReveal = Math.round(revealablePool.length * revealFraction);
-
-    // Derive a per-trial seed from the global seed + trial index so each trial is
-    // independently reproducible but all trials are tied to the participant's session.
-    const trialRng = new SeededRandom(randomSeed + sectionTrialIndex * 1000);
-    const shuffledPool = trialRng.shuffle(revealablePool);
-    const randomlyUnmaskedTokenIdxSet = new Set(shuffledPool.slice(0, nToReveal));
-
-    // Combined set: always-unmasked + randomly sampled
-    const unmaskedTokenIdxSet = new Set([...alwaysUnmaskedTokenIdxSet, ...randomlyUnmaskedTokenIdxSet]);
-
-    // Record both sets of word positions (0-indexed, punct-excluded) for data output.
-    const tokenToWordPos = buildTokenToWordPosMap(jabberTokens);
-    const randomlyUnmaskedWordPositions = shuffledPool.slice(0, nToReveal)
-        .map(tokIdx => tokenToWordPos.get(tokIdx))
-        .filter(pos => pos !== undefined);
 
     return {
         type: jsPsychHtmlButtonResponse,
@@ -317,7 +369,8 @@ function createBaselineTrial(trial, sectionTrialIndex, totalBaseline) {
                 sublist:                sublistNumber,
                 random_seed:            randomSeed,
                 trial_type:             'baseline',
-                trial_number:           trial.trial_number,
+                trial_number:           trialNumber,
+                trial_list_index:       trial.trial_number,
                 condition:              maskingLevel,
                 section_trial_index:    sectionTrialIndex + 1,
                 target_word:            trial.target_word,
@@ -326,14 +379,10 @@ function createBaselineTrial(trial, sectionTrialIndex, totalBaseline) {
                 target_probability:     trial.target_probability,
                 real_passage:           realSentence,
                 jabber_passage:         jabberSentence,
-                always_unmasked_word_indices:   JSON.stringify(alwaysUnmaskedWordPositions),
-                randomly_unmasked_word_indices: JSON.stringify(randomlyUnmaskedWordPositions),
+                unmasked_word_indices: JSON.stringify(unmaskedWordPositions),
             };
 
             let html = `
-                <div class="trial-counter">
-                    Section 1 &mdash; Trial ${sectionTrialIndex + 1} of ${totalBaseline}
-                </div>
                 <div class="sentence-container baseline-passage" id="sentence-container">
             `;
 
@@ -383,12 +432,145 @@ function createBaselineTrial(trial, sectionTrialIndex, totalBaseline) {
     };
 }
 
-// ===== OPEN-ENDED TRIAL (Phase 2) =====
+// ===== SAMPLING TRIAL (Section 2) =====
+// Shows the passage with all nonce words as clickable buttons.
+// Each click reveals the real word and deducts points.
+// Participant clicks "Make Guess" when ready, then guess/confidence/feedback follow.
+
+function createSamplingTrial(trial, sectionTrialIndex, totalSampling, trialNumber) {
+    const realSentence   = trial.real_passage   || '';
+    const jabberSentence = trial.jabber_passage || '';
+    const realTokens     = tokenizeSentence(realSentence);
+    const jabberTokens   = tokenizeSentence(jabberSentence);
+    const targetTokenIdx = wordPosToTokenIndex(jabberTokens, trial.target_word_position);
+
+    const numRevealableWords = getMaskableTokenIndices(jabberTokens, realTokens, targetTokenIdx).length;
+    const pointsPerReveal    = numRevealableWords > 0
+        ? Math.round((100 / numRevealableWords) * 100) / 100
+        : 0;
+    const tokenToWordPos = buildTokenToWordPosMap(jabberTokens);
+
+    // Mutable state shared between stimulus() and on_load() via closure.
+    let trialPoints   = 100;
+    let revealedWords = new Set();
+    let clickTimes    = [];
+
+    return {
+        type: jsPsychHtmlButtonResponse,
+        stimulus: function () {
+            startTime     = Date.now();
+            trialPoints   = 100;
+            revealedWords = new Set();
+            clickTimes    = [];
+
+            trialSequenceData = {
+                subjCode,
+                sublist:              sublistNumber,
+                random_seed:          randomSeed,
+                trial_type:           'sampling',
+                trial_number:         trialNumber,
+                trial_list_index:     trial.trial_number,
+                condition:            'sampling',
+                section_trial_index:  sectionTrialIndex + 1,
+                target_word:          trial.target_word,
+                target_word_position: trial.target_word_position,
+                entropy:              trial.entropy,
+                target_probability:   trial.target_probability,
+                real_passage:         realSentence,
+                jabber_passage:       jabberSentence,
+                num_revealable_words: numRevealableWords,
+                points_per_reveal:    pointsPerReveal,
+            };
+
+            let html = `
+                <div class="trial-counter">
+                    Section 2 &mdash; Trial ${sectionTrialIndex + 1} of ${totalSampling}
+                </div>
+                <div class="points-counter" id="points-counter">Trial Points: ${trialPoints}</div>
+                <div class="sentence-container sampling-passage" id="sentence-container">
+            `;
+
+            for (let i = 0; i < jabberTokens.length; i++) {
+                const token = jabberTokens[i];
+
+                if (isPunct(token)) {
+                    html += token;
+                    if (/[.,!?;:]/.test(token) && i < jabberTokens.length - 1) html += ' ';
+                    continue;
+                }
+
+                if (i === targetTokenIdx) {
+                    html += `<span class="word target">${token}</span> `;
+                } else if (isAutoRevealed(jabberTokens[i], realTokens[i])) {
+                    html += `<span class="word article">${realTokens[i]}</span> `;
+                } else {
+                    html += `<span class="word clickable" data-index="${i}">${token}</span> `;
+                }
+            }
+
+            html += `
+                </div>
+                <div class="controls">
+                    <button class="guess-button" id="guess-btn">Make Guess</button>
+                </div>
+            `;
+
+            return html;
+        },
+        choices: ['Make Guess'],
+        button_html: '<button class="jspsych-btn" style="display:none;">%choice%</button>',
+        on_load: function () {
+            document.querySelectorAll('.sampling-passage .word.clickable').forEach(wordEl => {
+                wordEl.addEventListener('click', function () {
+                    const index = parseInt(this.dataset.index);
+                    if (!revealedWords.has(index)) {
+                        revealedWords.add(index);
+                        trialPoints = Math.max(0, trialPoints - pointsPerReveal);
+                        updatePointsDisplay(trialPoints);
+                        clickTimes.push({
+                            word_index:      index,
+                            revealed_word:   realTokens[index],
+                            time_from_start: Date.now() - startTime
+                        });
+                        this.textContent = realTokens[index];
+                        this.classList.remove('clickable');
+                        this.classList.add('revealed');
+                    }
+                });
+            });
+
+            document.getElementById('guess-btn').addEventListener('click', function () {
+                const revealedWordsList = Array.from(revealedWords)
+                    .filter(idx => !isPunct(realTokens[idx]))
+                    .map(idx => realTokens[idx]);
+
+                const unmaskedWordPositions = Array.from(revealedWords)
+                    .filter(idx => !isPunct(realTokens[idx]))
+                    .map(idx => tokenToWordPos.get(idx))
+                    .filter(pos => pos !== undefined)
+                    .sort((a, b) => a - b);
+
+                trialSequenceData.unmasked_word_indices   = JSON.stringify(unmaskedWordPositions);
+                trialSequenceData.num_words_revealed      = revealedWordsList.length;
+                trialSequenceData.revealed_words          = JSON.stringify(revealedWordsList);
+                trialSequenceData.click_times             = JSON.stringify(clickTimes);
+                trialSequenceData.total_time_before_guess = Date.now() - startTime;
+                trialSequenceData.points_remaining        = Math.round(trialPoints * 100) / 100;
+
+                jsPsych.finishTrial();
+            });
+        },
+        trial_duration: null,
+        response_ends_trial: false
+    };
+}
+
+// ===== OPEN-ENDED TRIAL (Section 3) =====
 // Shows the full real passage and collects an open-ended response
 // about what the participant thinks the passage is about.
 // Response and timing are saved directly here (no separate guess/confidence screens).
 
-function createOpenEndedTrial(trial, sectionTrialIndex, totalPhase2) {
+function createOpenEndedTrial(trial, sectionTrialIndex, totalPhase2, trialNumber) {
     const passage = trial.jabber_passage || '';
 
     return {
@@ -401,7 +583,8 @@ function createOpenEndedTrial(trial, sectionTrialIndex, totalPhase2) {
                 sublist:             sublistNumber,
                 random_seed:         randomSeed,
                 trial_type:          'open_ended',
-                trial_number:        trial.trial_number,
+                trial_number:        trialNumber,
+                trial_list_index:    trial.trial_number,
                 condition:           'open_ended',
                 section_trial_index: sectionTrialIndex + 1,
                 passage_id:          trial.passage_id,
@@ -410,9 +593,6 @@ function createOpenEndedTrial(trial, sectionTrialIndex, totalPhase2) {
             };
 
             return `
-                <div class="trial-counter">
-                    Section 2 &mdash; Trial ${sectionTrialIndex + 1} of ${totalPhase2}
-                </div>
                 <div class="sentence-container open-ended-passage" id="sentence-container">
                     ${passage}
                 </div>
@@ -435,16 +615,24 @@ function createOpenEndedTrial(trial, sectionTrialIndex, totalPhase2) {
         choices: ['Submit'],
         button_html: '<button class="jspsych-btn" style="display:none;">%choice%</button>',
         on_load: function () {
+            firstKeystrokeTime = null;
             const textarea  = document.getElementById('open-ended-response');
             const submitBtn = document.getElementById('submit-btn');
+
+            textarea.addEventListener('keydown', function () {
+                if (firstKeystrokeTime === null) {
+                    firstKeystrokeTime = Date.now() - startTime;
+                }
+            }, { once: true });
 
             textarea.addEventListener('input', function () {
                 submitBtn.disabled = textarea.value.trim().length === 0;
             });
 
             submitBtn.addEventListener('click', function () {
-                trialSequenceData.open_ended_response = textarea.value.trim();
-                trialSequenceData.time_before_submit  = Date.now() - startTime;
+                trialSequenceData.open_ended_response     = textarea.value.trim();
+                trialSequenceData.time_before_submit      = Date.now() - startTime;
+                trialSequenceData.time_to_first_keystroke = firstKeystrokeTime;
                 consolidatedTrials.push({ ...trialSequenceData });
                 console.log('Phase 2 trial saved:', trialSequenceData);
                 jsPsych.finishTrial();
@@ -473,9 +661,29 @@ function createGuessInputTrial() {
             rows: 1,
             columns: 40
         }],
+        on_load: function () {
+            firstKeystrokeTime = null;
+            const input     = document.querySelector('[data-name="target_word_guess"]');
+            const submitBtn = document.querySelector('input[type="submit"].jspsych-btn');
+
+            if (submitBtn) submitBtn.disabled = true;
+
+            if (input) {
+                input.addEventListener('keydown', function () {
+                    if (firstKeystrokeTime === null) {
+                        firstKeystrokeTime = Date.now() - startTime;
+                    }
+                }, { once: true });
+
+                input.addEventListener('input', function () {
+                    if (submitBtn) submitBtn.disabled = input.value.trim().length === 0;
+                });
+            }
+        },
         on_finish: function (data) {
-            trialSequenceData.guess    = data.response.target_word_guess;
-            trialSequenceData.rt_guess = data.rt;
+            trialSequenceData.guess                   = data.response.target_word_guess;
+            trialSequenceData.rt_guess                = data.rt;
+            trialSequenceData.time_to_first_keystroke = firstKeystrokeTime;
         }
     };
 }
@@ -581,9 +789,9 @@ const welcome = {
     type: jsPsychHtmlKeyboardResponse,
     stimulus: `
         <div style="max-width: 600px; margin: 0 auto; text-align: left;">
-            <h1>Language Comprehension Experiment</h1>
+            <h1>Welcome!</h1>
             <p>In this experiment you will read passages and answer questions about them.
-            The experiment has two parts. You will receive instructions for each part
+            The experiment has three parts. You will receive instructions for each part
             before it begins.</p>
             <p><em>Press any key to continue</em></p>
         </div>
@@ -600,6 +808,9 @@ const baselineInstructions1 = {
             <p>In this part you will see passages where <strong>some words have been
             replaced with made-up nonsense words</strong>. The real words you can still
             see will give you context clues.</p>
+            <p><strong>Important:</strong> The nonsense words are completely random —
+            their spelling and sound have <em>no relationship</em> to the real English
+            words they replaced.
             <p>Your job:</p>
             <ol>
                 <li>Read the passage carefully.</li>
@@ -609,6 +820,11 @@ const baselineInstructions1 = {
                 <li>Rate your confidence.</li>
                 <li>You will see the correct answer before moving on.</li>
             </ol>
+            <p style="margin-top: 18px; padding: 12px 16px; background: #fff8e1;
+                      border-left: 4px solid #f9a825; border-radius: 3px;">
+                <strong>Please do not use AI tools or search engines during this
+                experiment.</strong> We are interested in <em>your</em> responses.
+            </p>
             <p><em>Press any key to continue</em></p>
         </div>
     `
@@ -635,7 +851,23 @@ const baselineInstructions2 = {
     `
 };
 
-// --- Transition between sections ---
+// --- Practice instructions ---
+
+const practiceInstructions = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `
+        <div style="max-width: 600px; margin: 0 auto; text-align: left;">
+            <h2>Let's Practice</h2>
+            <p>Before we begin, let's do <strong>2 practice trials</strong> so you can
+            get comfortable with the task.</p>
+            <p>Remember: the bolded nonsense word is what you're guessing. Some words will be masked
+            and some won't but try your best to use all the context available to you to guess the meaning.</p>
+            <p><em>Press any key to start the practice</em></p>
+        </div>
+    `
+};
+
+// --- Transition 1 → 2 ---
 
 const transitionScreen = {
     type: jsPsychHtmlKeyboardResponse,
@@ -648,7 +880,65 @@ const transitionScreen = {
     `
 };
 
-// --- Section 2 instructions ---
+// --- Section 2 (Sampling) instructions ---
+
+const samplingInstructions1 = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `
+        <div style="max-width: 600px; margin: 0 auto; text-align: left;">
+            <h2>Part 2 Instructions</h2>
+            <p>In this part you will again see sentences with made-up nonsense words.</p>
+            <p>The difference now: you can <strong>click on any nonsense word to reveal
+            its real meaning</strong>.</p>
+            <p>Your job:</p>
+            <ol>
+                <li>Read the sentence.</li>
+                <li>Click words to reveal them if you need more context — but try to
+                    reveal as few as possible!</li>
+                <li>When you are ready to guess, click <strong>Make Guess</strong>.</li>
+                <li>Type your best ONE-WORD guess for the <strong>bolded word</strong>.</li>
+                <li>Rate your confidence.</li>
+                <li>You will see the correct answer before moving on.</li>
+            </ol>
+            <p><strong>Scoring:</strong> Each trial starts with <strong>100 points</strong>.
+            Each word you reveal costs points. Try to guess with as few reveals as
+            possible!</p>
+            <p><em>Press any key to continue</em></p>
+        </div>
+    `
+};
+
+const samplingInstructions2 = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `
+        <div style="max-width: 600px; margin: 0 auto; text-align: left;">
+            <h2>Part 2 — Tips</h2>
+            <p>Words shown as <strong>gray boxes</strong> can be clicked to reveal their
+            real meaning.</p>
+            <p>Words already shown normally (without a box) are function words or words
+            that are the same in both versions — they are always visible.</p>
+            <p>The <strong>bolded word</strong> is the one you need to guess — it cannot
+            be revealed by clicking.</p>
+            <p>Even if you are unsure, make your best one-word guess before moving on.</p>
+            <p><em>Press any key to start Part 2</em></p>
+        </div>
+    `
+};
+
+// --- Transition 2 → 3 ---
+
+const transitionScreen2 = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `
+        <div style="max-width: 600px; margin: 0 auto; text-align: left;">
+            <h2>Great work — Part 2 complete!</h2>
+            <p>Now we will move on to <strong>Part 3</strong>, which works differently.</p>
+            <p><em>Press any key to read the Part 3 instructions</em></p>
+        </div>
+    `
+};
+
+// --- Section 3 (Open-Ended) instructions ---
 
 const PHASE2_EXAMPLE_PASSAGE = [
     "Ghoc and splync . Splync he had gwob gwob . We 're doing a dwoque neight down .",
@@ -673,7 +963,7 @@ const phase2Instructions1 = {
     type: jsPsychHtmlKeyboardResponse,
     stimulus: `
         <div style="max-width: 650px; margin: 0 auto; text-align: left;">
-            <h2>Part 2 Instructions</h2>
+            <h2>Part 3 Instructions</h2>
             <p>In this part you will read passages where <strong>most words have been
             replaced with nonsense</strong>. Only common function words like
             <em>the</em>, <em>a</em>, <em>and</em>, <em>in</em>, etc. remain as real
@@ -697,7 +987,7 @@ const phase2Instructions2 = {
     type: jsPsychHtmlKeyboardResponse,
     stimulus: `
         <div style="max-width: 700px; margin: 0 auto; text-align: left;">
-            <h2>Part 2 — Examples</h2>
+            <h2>Part 3 — Examples</h2>
 
             <p>Here is an example of what a passage will look like:</p>
 
@@ -754,7 +1044,7 @@ const phase2Instructions2 = {
 
             <p style="margin-top: 20px;">Do your best — even an uncertain interpretation
             is valuable to us.</p>
-            <p><em>Press any key to start Part 2</em></p>
+            <p><em>Press any key to start Part 3</em></p>
         </div>
     `
 };
@@ -797,27 +1087,66 @@ async function createTimeline() {
         consent,
         welcome,
         baselineInstructions1,
-        baselineInstructions2
+        baselineInstructions2,
+        practiceInstructions,
     ];
 
-    // --- Section 1: baseline trials (some_masked + most_masked, shuffled) ---
+    // --- Practice trials ---
+    PRACTICE_TRIAL_DATA.forEach((p, i) => {
+        timeline.push(createHardcodedTrial(p.passageHtml, p.targetWord, 'practice', `P${i + 1}`));
+        timeline.push(createGuessInputTrial());
+        timeline.push(createConfidenceRatingTrial());
+        timeline.push(createFeedbackTrial({ target_word: p.targetWord }));
+    });
+
+    // --- Section 1: baseline trials with attention checks at ~1/3 and ~2/3 ---
     const totalBaseline = baselineTrialData.length;
+    let globalTrialNum = 1;
+    let attnCheckIdx = 0;
+    const attnInsertAfter = new Set([
+        Math.floor(totalBaseline / 3) - 1,
+        Math.floor(2 * totalBaseline / 3) - 1,
+    ]);
+
     baselineTrialData.forEach((trial, i) => {
-        timeline.push(createBaselineTrial(trial, i, totalBaseline));
+        timeline.push(createBaselineTrial(trial, i, totalBaseline, globalTrialNum++));
+        timeline.push(createGuessInputTrial());
+        timeline.push(createConfidenceRatingTrial());
+        timeline.push(createFeedbackTrial(trial));
+
+        if (attnInsertAfter.has(i) && attnCheckIdx < ATTENTION_CHECK_DATA.length) {
+            const check = ATTENTION_CHECK_DATA[attnCheckIdx];
+            timeline.push(createHardcodedTrial(check.passageHtml, check.targetWord, 'attention_check', `AC${attnCheckIdx + 1}`));
+            timeline.push(createGuessInputTrial());
+            timeline.push(createConfidenceRatingTrial());
+            timeline.push(createFeedbackTrial({ target_word: check.targetWord }));
+            attnCheckIdx++;
+        }
+    });
+
+    // --- Transition 1 → 2 ---
+    timeline.push(transitionScreen);
+    timeline.push(samplingInstructions1);
+    timeline.push(samplingInstructions2);
+
+    // --- Section 2: sampling trials (interactive click-to-reveal) ---
+    const totalSampling = samplingTrialData.length;
+    samplingTrialData.forEach((trial, i) => {
+        timeline.push(createSamplingTrial(trial, i, totalSampling, globalTrialNum++));
         timeline.push(createGuessInputTrial());
         timeline.push(createConfidenceRatingTrial());
         timeline.push(createFeedbackTrial(trial));
     });
 
-    // --- Transition ---
-    timeline.push(transitionScreen);
+    // --- Transition 2 → 3 ---
+    timeline.push(transitionScreen2);
     timeline.push(phase2Instructions1);
     timeline.push(phase2Instructions2);
 
-    // --- Section 2: open-ended passage trials ---
+    // --- Section 3: open-ended passage trials ---
     const totalPhase2 = phase2TrialData.length;
     phase2TrialData.forEach((trial, i) => {
-        timeline.push(createOpenEndedTrial(trial, i, totalPhase2));
+        timeline.push(createOpenEndedTrial(trial, i, totalPhase2, globalTrialNum++));
     });
 
     // --- Saving screen + data pipe save ---
@@ -826,7 +1155,7 @@ async function createTimeline() {
     timeline.push({
         type: jsPsychPipe,
         action: 'save',
-        experiment_id: 'PYSjeESL3lfq',
+        experiment_id: EXPERIMENT_ID,
         filename: `${subjCode}.csv`,
         data_string: () => {
             console.log(`Saving ${consolidatedTrials.length} trials...`);
@@ -886,7 +1215,7 @@ createTimeline()
         document.body.innerHTML = `
             <div style="text-align: center; padding: 50px;">
                 <h2>Error Loading Experiment</h2>
-                <p>Could not load <code>trial_lists/sublist_${sublistNumber}.csv</code>.</p>
+                <p>Could not load <code>trial_lists/${sublistNumber}.csv</code>.</p>
                 <p style="color: red;">Error: ${error.message}</p>
             </div>
         `;
