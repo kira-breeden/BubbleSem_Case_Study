@@ -281,11 +281,28 @@ async function loadAllTrialData() {
 const PRACTICE_TRIAL_DATA = [
     {
         passageHtml: `The zirps kicked the <span class="word target">blorf</span> across the scrempf. It glashed high prof the deek.`,
-        targetWord: 'ball',
+        targetWord:  'ball',
     },
     {
         passageHtml: `She zop dake at the glimp and opened her <span class="word target">glorp</span>. She began to zap quietly.`,
-        targetWord: 'book',
+        targetWord:  'book',
+    },
+];
+
+// Same passages as PRACTICE_TRIAL_DATA but fully masked with nonce words for
+// the Section 2 practice, where participants click to reveal words.
+const PRACTICE_SAMPLING_DATA = [
+    {
+        jabber_passage:       'The zirps flirped the blorf plomp the scrempf. Zelf glashed grop prof the deek.',
+        real_passage:         'The kids kicked the ball across the field. It soared high over the fence.',
+        target_word_position: 4,
+        targetWord:           'ball',
+    },
+    {
+        jabber_passage:       'Thrix zop dake at the glimp and grunted gliv glorp. Thrix whaped to zap druply.',
+        real_passage:         'She sat down at the table and opened her book. She began to read quietly.',
+        target_word_position: 9,
+        targetWord:           'book',
     },
 ];
 
@@ -327,6 +344,99 @@ function createHardcodedTrial(passageHtml, targetWord, trialType, trialNumber) {
         choices: ['Make Guess'],
         button_html: '<button class="jspsych-btn" style="display:none;">%choice%</button>',
         on_load: function () {
+            document.getElementById('guess-btn').addEventListener('click', function () {
+                trialSequenceData.time_before_guess = Date.now() - startTime;
+                jsPsych.finishTrial();
+            });
+        },
+        trial_duration: null,
+        response_ends_trial: false
+    };
+}
+
+// ===== HARDCODED SAMPLING TRIAL =====
+// Same passages as the baseline practice trials, but rendered in sampling style:
+// all nonce words are clickable, revealing the real English word on click.
+
+function createHardcodedSamplingTrial(p, trialType, trialNumber) {
+    const jabberTokens   = tokenizeSentence(p.jabber_passage);
+    const realTokens     = tokenizeSentence(p.real_passage);
+    const targetTokenIdx = wordPosToTokenIndex(jabberTokens, p.target_word_position);
+
+    const numRevealableWords = getMaskableTokenIndices(jabberTokens, realTokens, targetTokenIdx).length;
+    const pointsPerReveal    = numRevealableWords > 0
+        ? Math.round((100 / numRevealableWords) * 100) / 100
+        : 0;
+
+    let trialPoints   = 100;
+    let revealedWords = new Set();
+
+    return {
+        type: jsPsychHtmlButtonResponse,
+        stimulus: function () {
+            startTime     = Date.now();
+            trialPoints   = 100;
+            revealedWords = new Set();
+
+            trialSequenceData = {
+                subjCode,
+                sublist:      sublistNumber,
+                random_seed:  randomSeed,
+                trial_type:   trialType,
+                trial_number: trialNumber,
+                target_word:  p.targetWord,
+                condition:    trialType,
+            };
+
+            let html = `
+                <div class="points-counter" id="points-counter">Trial Points: ${trialPoints}</div>
+                <div class="sentence-container sampling-passage" id="sentence-container">
+            `;
+
+            for (let i = 0; i < jabberTokens.length; i++) {
+                const token = jabberTokens[i];
+
+                if (isPunct(token)) {
+                    html += token;
+                    if (/[.,!?;:]/.test(token) && i < jabberTokens.length - 1) html += ' ';
+                    continue;
+                }
+
+                if (i === targetTokenIdx) {
+                    html += `<span class="word target">${token}</span> `;
+                } else if (isAutoRevealed(jabberTokens[i], realTokens[i])) {
+                    html += `<span class="word article">${realTokens[i]}</span> `;
+                } else {
+                    html += `<span class="word clickable" data-index="${i}">${token}</span> `;
+                }
+            }
+
+            html += `
+                </div>
+                <div class="controls">
+                    <button class="guess-button" id="guess-btn">Make Guess</button>
+                </div>
+            `;
+
+            return html;
+        },
+        choices: ['Make Guess'],
+        button_html: '<button class="jspsych-btn" style="display:none;">%choice%</button>',
+        on_load: function () {
+            document.querySelectorAll('.sampling-passage .word.clickable').forEach(wordEl => {
+                wordEl.addEventListener('click', function () {
+                    const index = parseInt(this.dataset.index);
+                    if (!revealedWords.has(index)) {
+                        revealedWords.add(index);
+                        trialPoints = Math.max(0, trialPoints - pointsPerReveal);
+                        updatePointsDisplay(trialPoints);
+                        this.textContent = realTokens[index];
+                        this.classList.remove('clickable');
+                        this.classList.add('revealed');
+                    }
+                });
+            });
+
             document.getElementById('guess-btn').addEventListener('click', function () {
                 trialSequenceData.time_before_guess = Date.now() - startTime;
                 jsPsych.finishTrial();
@@ -805,28 +915,21 @@ const baselineInstructions1 = {
     stimulus: `
         <div style="max-width: 600px; margin: 0 auto; text-align: left;">
             <h2>Part 1 Instructions</h2>
-            <p>In this part you will see passages where <strong>some words have been
-            replaced with made-up nonsense words</strong>. The real words you can still
-            see will give you context clues.</p>
-            <p><strong>Important:</strong> The nonsense words are completely random —
-            their spelling and sound have <em>no relationship</em> to the real English
-            words they replaced.
-            <p>Your job:</p>
+            <p>In this task you will read a passage of text and try to guess the meaning of a word in bold. The majority of 
+            the words in the passage will be nonsense words. These words are totally random and have no relationship to the 
+            real English words they have replaced. </p>
+            <p>On each trial:</p>
             <ol>
-                <li>Read the passage carefully.</li>
-                <li>Try to figure out what the <strong>bolded word</strong> means.</li>
-                <li>When you are ready to guess, click <strong>Make Guess</strong>.</li>
-                <li>Type your best ONE-WORD guess.</li>
-                <li>Rate your confidence.</li>
-                <li>You will see the correct answer before moving on.</li>
+                <li>You'll see a sentence with one <strong>bolded word</strong> - this is your target word to guess</li>
+                <li>Read the sentence carefully to understand the context</li>
+                <li>When you think you know the meaning of the bolded word, click "Make Guess"</li>
+                <li>Type your guess for the bolded word</li>
+                <li>Rate your confidence in your guess</li>
+                <li>You'll see feedback showing the correct answer</li>
             </ol>
-            <p style="margin-top: 18px; padding: 12px 16px; background: #fff8e1;
-                      border-left: 4px solid #f9a825; border-radius: 3px;">
-                <strong>Please do not use AI tools or search engines during this
-                experiment.</strong> We are interested in <em>your</em> responses.
-            </p>
-            <p><em>Press any key to continue</em></p>
-        </div>
+            <p><strong>Important: Try to be as specific as possible in your guesses. Your guess should be ONE WORD!</strong></p>
+            <p><em>Press any key to move on to the next page </em></p>
+        </div> 
     `
 };
 
@@ -834,26 +937,21 @@ const baselineInstructions2 = {
     type: jsPsychHtmlKeyboardResponse,
     stimulus: `
         <div style="max-width: 600px; margin: 0 auto; text-align: left;">
-            <h2>Part 1 — Tips</h2>
-            <p>Some passages will have more nonsense words than others — that is intentional.</p>
-            <p>Use every real word you can see as a clue. Even if you are unsure, make your
-            best one-word guess before moving on.</p>
-            <p><strong>Example:</strong></p>
+            <h2>When are you ready to guess?</h2>
+            <p><strong>This will sometimes be quite difficult, but just do your best!</strong></p>
+            <p>For example, you might see something like this:</p>
             <p style="margin-left: 20px; font-style: italic;">
-                "The glorp gleamed in the deng morning <strong>glosh</strong>."
+                "The glorp tafed in the deng zirp <strong>glosh</strong>."
             </p>
-            <p>You might guess <em>sun</em>, <em>light</em>, or <em>air</em> — all
-            reasonable one-word guesses based on context. That is the right level of
-            specificity.</p>
-            <p><strong>Please use ONE WORD guesses only.</strong></p>
-            <p><em>Press any key to start Part 1</em></p>
+            <p>Take some time to think about what "glosh" might mean and once you have your best ONE WORD GUESS, you can move forward.</p>
+            <p style="margin-top: 30px;"><em>Press any key to continue</em></p>
         </div>
     `
 };
 
 // --- Practice instructions ---
 
-const practiceInstructions = {
+const practiceInstructions1 = {
     type: jsPsychHtmlKeyboardResponse,
     stimulus: `
         <div style="max-width: 600px; margin: 0 auto; text-align: left;">
@@ -861,13 +959,25 @@ const practiceInstructions = {
             <p>Before we begin, let's do <strong>2 practice trials</strong> so you can
             get comfortable with the task.</p>
             <p>Remember: the bolded nonsense word is what you're guessing. Some words will be masked
-            and some won't but try your best to use all the context available to you to guess the meaning.</p>
+            and some won't but try your best to guess the meaning.</p>
             <p><em>Press any key to start the practice</em></p>
         </div>
     `
 };
 
 // --- Transition 1 → 2 ---
+
+const practiceCompleteScreen = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `
+        <div style="max-width: 600px; margin: 0 auto; text-align: left;">
+            <h2>Practice complete!</h2>
+            <p><strong>Final Reminder: Please use ONE WORD GUESSES!</strong></p>
+            <p><strong>Some will be harder than others, so just do your best and take your time!</strong></p>
+            <p><em>Press any key to start Part 1</em></p>
+        </div>
+    `
+};
 
 const transitionScreen = {
     type: jsPsychHtmlKeyboardResponse,
@@ -888,13 +998,13 @@ const samplingInstructions1 = {
         <div style="max-width: 600px; margin: 0 auto; text-align: left;">
             <h2>Part 2 Instructions</h2>
             <p>In this part you will again see sentences with made-up nonsense words.</p>
-            <p>The difference now: you can <strong>click on any nonsense word to reveal
+            <p>The difference: now you can <strong>click on any nonsense word to reveal
             its real meaning</strong>.</p>
             <p>Your job:</p>
             <ol>
                 <li>Read the sentence.</li>
-                <li>Click words to reveal them if you need more context — but try to
-                    reveal as few as possible!</li>
+                <li>Click words to reveal them if you need more context — but <strong> try to
+                    reveal as few as possible! </strong> </li>
                 <li>When you are ready to guess, click <strong>Make Guess</strong>.</li>
                 <li>Type your best ONE-WORD guess for the <strong>bolded word</strong>.</li>
                 <li>Rate your confidence.</li>
@@ -912,20 +1022,76 @@ const samplingInstructions2 = {
     type: jsPsychHtmlKeyboardResponse,
     stimulus: `
         <div style="max-width: 600px; margin: 0 auto; text-align: left;">
-            <h2>Part 2 — Tips</h2>
-            <p>Words shown as <strong>gray boxes</strong> can be clicked to reveal their
-            real meaning.</p>
-            <p>Words already shown normally (without a box) are function words or words
-            that are the same in both versions — they are always visible.</p>
-            <p>The <strong>bolded word</strong> is the one you need to guess — it cannot
-            be revealed by clicking.</p>
-            <p>Even if you are unsure, make your best one-word guess before moving on.</p>
-            <p><em>Press any key to start Part 2</em></p>
+            <h2>When are you ready to guess?</h2>
+            
+            <p><strong>Do not guess the word if you have no idea what it might mean.</strong></p>
+            
+            <p>For example:</p>
+            
+            <p style="margin-left: 20px; font-style: italic;">
+                "The glorp tafed in the deng zirp <strong>glosh</strong>."
+            </p>
+            
+            <p>You might think that the target word is an object, but this is not a specific enough guess.</p>
+            
+            <p>Let's reveal some more words!</p>
+            
+            <p style="margin-left: 20px; font-style: italic;">
+                "The glorp gleamed in the deng morning <strong>glosh</strong>."
+            </p>
+            
+            <p>Now you might have some better guesses about what <strong>glosh</strong> could be! Is it maybe sun? sunshine? air? light? </p>
+            <p> <strong>This is the right level of specificity for your guess. </strong></p>
+            
+            <p style="margin-top: 30px;"><em>Press any key to continue</em></p>
+        </div>
+    `
+};
+
+const samplingInstructions3 = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `
+        <div style="max-width: 600px; margin: 0 auto; text-align: left;">
+
+            <p>However! You might not be able to get this close every time:<p>
+                        
+            <p>Sometimes, your best guess might just be that it's an animal, a color, a type of plant, etc. These are okay guesses, though they are not as good as the earlier ones.</p>
+
+            <p>You should be able to narrow down the meaning more than just what part of speech it might be, or that it might be an object that moves. </p>
+            
+            <p><strong>Try and get as close as you can without losing too many points. We are looking for one word answers. </strong> </p>
+            
+            <p style="margin-top: 30px;"><em>Press any key to begin Part 2 practice.</em></p>
+        </div>
+    `
+};
+
+const practiceInstructions2 = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `
+        <div style="max-width: 600px; margin: 0 auto; text-align: left;">
+            <h2>Let's Practice</h2>
+            <p>Before we begin, let's do <strong>2 practice trials</strong> so you can
+            get comfortable with the task.</p>
+            <p>Remember: Click on words to reveal their meaning, but try to reveal as few as possible! </p>
+            <p><em>Press any key to start the practice</em></p>
         </div>
     `
 };
 
 // --- Transition 2 → 3 ---
+
+const practiceCompleteScreen2 = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `
+        <div style="max-width: 600px; margin: 0 auto; text-align: left;">
+            <h2>Practice complete!</h2>
+            <p><strong>Final Reminder: Please use ONE WORD GUESSES!</strong></p>
+            <p><strong>Just do your best and take your time!</strong></p>
+            <p><em>Press any key to start Part 2</em></p>
+        </div>
+    `
+};
 
 const transitionScreen2 = {
     type: jsPsychHtmlKeyboardResponse,
@@ -964,20 +1130,17 @@ const phase2Instructions1 = {
     stimulus: `
         <div style="max-width: 650px; margin: 0 auto; text-align: left;">
             <h2>Part 3 Instructions</h2>
-            <p>In this part you will read passages where <strong>most words have been
-            replaced with nonsense</strong>. Only common function words like
-            <em>the</em>, <em>a</em>, <em>and</em>, <em>in</em>, etc. remain as real
-            English words.</p>
+            <p>In this part you will read longer passages where <strong>most words have been
+            replaced with nonsense</strong>. 
             <p>After reading each passage you will answer:</p>
             <p style="margin: 16px 30px; font-size: 17px;">
                 <em>"What do you think this passage is about?"</em>
             </p>
-            <p>We know most of the words are unreadable — that is intentional. Use the
-            function words, grammar, and overall structure to make your best guess at
-            the meaning. Write a few sentences. There are no right or wrong answers.</p>
+            <p>We know this might seem pretty difficult with most of words masked with nonsense. 
+            But, there are no right or wrong answers! Do your best to understand and make a guess 
+            about what the passage is about.</p>
             <p><strong>Important:</strong> the nonsense words are randomly assigned
-            and are not secretly similar to real words, so do not try to decode them
-            letter by letter — focus on the structure of the text.</p>
+            and are not secretly related to the real words.</p>
             <p><em>Press any key to see examples</em></p>
         </div>
     `
@@ -1088,7 +1251,7 @@ async function createTimeline() {
         welcome,
         baselineInstructions1,
         baselineInstructions2,
-        practiceInstructions,
+        practiceInstructions1,
     ];
 
     // --- Practice trials ---
@@ -1098,6 +1261,8 @@ async function createTimeline() {
         timeline.push(createConfidenceRatingTrial());
         timeline.push(createFeedbackTrial({ target_word: p.targetWord }));
     });
+
+    timeline.push(practiceCompleteScreen);
 
     // --- Section 1: baseline trials with attention checks at ~1/3 and ~2/3 ---
     const totalBaseline = baselineTrialData.length;
@@ -1128,6 +1293,18 @@ async function createTimeline() {
     timeline.push(transitionScreen);
     timeline.push(samplingInstructions1);
     timeline.push(samplingInstructions2);
+    timeline.push(samplingInstructions3);
+    timeline.push(practiceInstructions2);
+
+    // --- Section 2 practice trials ---
+    PRACTICE_SAMPLING_DATA.forEach((p, i) => {
+        timeline.push(createHardcodedSamplingTrial(p, 'practice_s2', `P2_${i + 1}`));
+        timeline.push(createGuessInputTrial());
+        timeline.push(createConfidenceRatingTrial());
+        timeline.push(createFeedbackTrial({ target_word: p.targetWord }));
+    });
+
+    timeline.push(practiceCompleteScreen2);
 
     // --- Section 2: sampling trials (interactive click-to-reveal) ---
     const totalSampling = samplingTrialData.length;
