@@ -547,7 +547,7 @@ function createBaselineTrial(trial, sectionTrialIndex, totalBaseline, trialNumbe
 // Each click reveals the real word and deducts points.
 // Participant clicks "Make Guess" when ready, then guess/confidence/feedback follow.
 
-function createSamplingTrial(trial, sectionTrialIndex, totalSampling, trialNumber) {
+function createSamplingTrial(trial, sectionTrialIndex, trialNumber) {
     const realSentence   = trial.real_passage   || '';
     const jabberSentence = trial.jabber_passage || '';
     const realTokens     = tokenizeSentence(realSentence);
@@ -593,9 +593,6 @@ function createSamplingTrial(trial, sectionTrialIndex, totalSampling, trialNumbe
             };
 
             let html = `
-                <div class="trial-counter">
-                    Section 2 &mdash; Trial ${sectionTrialIndex + 1} of ${totalSampling}
-                </div>
                 <div class="points-counter" id="points-counter">Trial Points: ${trialPoints}</div>
                 <div class="sentence-container sampling-passage" id="sentence-container">
             `;
@@ -1307,9 +1304,8 @@ async function createTimeline() {
     timeline.push(practiceCompleteScreen2);
 
     // --- Section 2: sampling trials (interactive click-to-reveal) ---
-    const totalSampling = samplingTrialData.length;
     samplingTrialData.forEach((trial, i) => {
-        timeline.push(createSamplingTrial(trial, i, totalSampling, globalTrialNum++));
+        timeline.push(createSamplingTrial(trial, i, globalTrialNum++));
         timeline.push(createGuessInputTrial());
         timeline.push(createConfidenceRatingTrial());
         timeline.push(createFeedbackTrial(trial));
@@ -1355,7 +1351,7 @@ async function createTimeline() {
         type: jsPsychHtmlKeyboardResponse,
         stimulus: function () {
             const surveyURL = getURLParameter('survey_url')
-                || 'https://uwmadison.co1.qualtrics.com/jfe/form/SV_2gBjgNQpFFwXvhQ';
+                || 'https://uwmadison.co1.qualtrics.com/jfe/form/SV_2aRxcJmUkeVr06W';
             const surveyWithId = `${surveyURL}${surveyURL.includes('?') ? '&' : '?'}subjCode=${subjCode}`;
 
             setTimeout(() => { window.location.href = surveyWithId; }, 2000);
