@@ -839,11 +839,11 @@ function createFeedbackTrial(trial) {
                 <div style="text-align: center; max-width: 2000px; margin: 0 auto; padding: 40px;">
                     <h2 style="margin-bottom: 30px;">Good job!</h2>
                     <div style="display: flex; justify-content: center; gap: 60px;">
-                        <div style="flex: 1; background: #f0f0f0; border-radius: 8px; padding: 20px;">
+                        <div style="flex: 1; min-width: 220px; background: #f0f0f0; border-radius: 8px; padding: 20px;">
                             <p style="font-size: 13px; color: #555; margin: 0 0 10px;">Your response</p>
                             <p style="font-size: 30px; font-weight: bold; margin: 0;">${participantGuess || '—'}</p>
                         </div>
-                        <div style="flex: 1; background: #f0f0f0; border-radius: 8px; padding: 20px;">
+                        <div style="flex: 1; min-width: 220px; background: #f0f0f0; border-radius: 8px; padding: 20px;">
                             <p style="font-size: 13px; color: #555; margin: 0 0 10px;">Correct response</p>
                             <p style="font-size: 30px; font-weight: bold; margin: 0;">${correct}</p>
                         </div>
