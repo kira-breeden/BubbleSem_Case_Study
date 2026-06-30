@@ -860,53 +860,53 @@ function createFeedbackTrial(trial) {
 
 // ===== SCREENS =====
 
-const consent = {
-    type: jsPsychHtmlButtonResponse,
-    stimulus: `
-        <div style="width: 800px; margin: 0 auto; text-align: left">
-            <h3>Consent to Participate in Research</h3>
-
-            <p>The task you are about to do is sponsored by University of Wisconsin-Madison.
-            It is part of a protocol titled "What are we learning from language?"</p>
-
-            <p>The task you are asked to do involves making simple responses to words and
-            sentences. More detailed instructions for this specific task will be provided
-            on the next screen.</p>
-
-            <p>This task has no direct benefits. We do not anticipate any psychosocial
-            risks. There is a risk of a confidentiality breach. Participants may become
-            fatigued or frustrated due to the length of the study.</p>
-
-            <p>The responses you submit as part of this task will be stored on a secure
-            server and accessible only to researchers who have been approved by
-            UW-Madison. Processed data with all identifiers removed could be used for
-            future research studies or distributed to another investigator for future
-            research studies without additional informed consent.</p>
-
-            <p>You are free to decline to participate, to end participation at any time
-            for any reason, or to refuse to answer any individual question without penalty
-            or loss of earned compensation. We will not retain data from partial
-            responses.</p>
-
-            <p>If you have any questions or concerns about this task please contact the
-            principal investigator: Prof. Gary Lupyan at lupyan@wisc.edu.</p>
-
-            <p>If you are not satisfied with the response of the research team, have more
-            questions, or want to talk with someone about your rights as a research
-            participant, you should contact University of Wisconsin's Education Research
-            and Social &amp; Behavioral Science IRB Office at 608-263-2320.</p>
-
-            <p><strong>By clicking the box below, I consent to participate in this task
-            and affirm that I am at least 18 years old.</strong></p>
-        </div>
-    `,
-    choices: ['I Agree', 'I Do Not Agree'],
-    on_finish: function (data) {
-        if (data.response === 1) {
-            jsPsych.endExperiment('Thank you for your time. The experiment has been ended.');
-        }
-    }
-};
+// const consent = {
+//     type: jsPsychHtmlButtonResponse,
+//     stimulus: `
+//         <div style="width: 800px; margin: 0 auto; text-align: left">
+//             <h3>Consent to Participate in Research</h3>
+//
+//             <p>The task you are about to do is sponsored by University of Wisconsin-Madison.
+//             It is part of a protocol titled "What are we learning from language?"</p>
+//
+//             <p>The task you are asked to do involves making simple responses to words and
+//             sentences. More detailed instructions for this specific task will be provided
+//             on the next screen.</p>
+//
+//             <p>This task has no direct benefits. We do not anticipate any psychosocial
+//             risks. There is a risk of a confidentiality breach. Participants may become
+//             fatigued or frustrated due to the length of the study.</p>
+//
+//             <p>The responses you submit as part of this task will be stored on a secure
+//             server and accessible only to researchers who have been approved by
+//             UW-Madison. Processed data with all identifiers removed could be used for
+//             future research studies or distributed to another investigator for future
+//             research studies without additional informed consent.</p>
+//
+//             <p>You are free to decline to participate, to end participation at any time
+//             for any reason, or to refuse to answer any individual question without penalty
+//             or loss of earned compensation. We will not retain data from partial
+//             responses.</p>
+//
+//             <p>If you have any questions or concerns about this task please contact the
+//             principal investigator: Prof. Gary Lupyan at lupyan@wisc.edu.</p>
+//
+//             <p>If you are not satisfied with the response of the research team, have more
+//             questions, or want to talk with someone about your rights as a research
+//             participant, you should contact University of Wisconsin's Education Research
+//             and Social &amp; Behavioral Science IRB Office at 608-263-2320.</p>
+//
+//             <p><strong>By clicking the box below, I consent to participate in this task
+//             and affirm that I am at least 18 years old.</strong></p>
+//         </div>
+//     `,
+//     choices: ['I Agree', 'I Do Not Agree'],
+//     on_finish: function (data) {
+//         if (data.response === 1) {
+//             jsPsych.endExperiment('Thank you for your time. The experiment has been ended.');
+//         }
+//     }
+// };
 
 const welcome = {
     type: jsPsychHtmlKeyboardResponse,
@@ -1261,7 +1261,7 @@ async function createTimeline() {
     await loadAllTrialData();
 
     const timeline = [
-        consent,
+        // consent,
         welcome,
         baselineInstructions1,
         baselineInstructions2,
