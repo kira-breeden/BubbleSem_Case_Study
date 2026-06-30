@@ -337,11 +337,11 @@ function createHardcodedTrial(passageHtml, targetWord, trialType, trialNumber) {
                     ${passageHtml}
                 </div>
                 <div class="controls">
-                    <button class="guess-button" id="guess-btn">Make Guess</button>
+                    <button class="guess-button" id="guess-btn">Make a Guess</button>
                 </div>
             `;
         },
-        choices: ['Make Guess'],
+        choices: ['Make a Guess'],
         button_html: '<button class="jspsych-btn" style="display:none;">%choice%</button>',
         on_load: function () {
             document.getElementById('guess-btn').addEventListener('click', function () {
@@ -414,13 +414,13 @@ function createHardcodedSamplingTrial(p, trialType, trialNumber) {
             html += `
                 </div>
                 <div class="controls">
-                    <button class="guess-button" id="guess-btn">Make Guess</button>
+                    <button class="guess-button" id="guess-btn">Make a Guess</button>
                 </div>
             `;
 
             return html;
         },
-        choices: ['Make Guess'],
+        choices: ['Make a Guess'],
         button_html: '<button class="jspsych-btn" style="display:none;">%choice%</button>',
         on_load: function () {
             document.querySelectorAll('.sampling-passage .word.clickable').forEach(wordEl => {
@@ -449,7 +449,7 @@ function createHardcodedSamplingTrial(p, trialType, trialNumber) {
 
 // ===== BASELINE TRIAL =====
 // Shows the passage with predetermined masked/unmasked words.
-// No reveal interactivity — participant clicks "Make Guess" when ready.
+// No reveal interactivity — participant clicks "Make a Guess" when ready.
 
 function createBaselineTrial(trial, sectionTrialIndex, totalBaseline, trialNumber) {
     const realSentence   = trial.real_passage    || '';
@@ -523,13 +523,13 @@ function createBaselineTrial(trial, sectionTrialIndex, totalBaseline, trialNumbe
             html += `
                 </div>
                 <div class="controls">
-                    <button class="guess-button" id="guess-btn">Make Guess</button>
+                    <button class="guess-button" id="guess-btn">Make a Guess</button>
                 </div>
             `;
 
             return html;
         },
-        choices: ['Make Guess'],
+        choices: ['Make a Guess'],
         button_html: '<button class="jspsych-btn" style="display:none;">%choice%</button>',
         on_load: function () {
             document.getElementById('guess-btn').addEventListener('click', function () {
@@ -545,7 +545,7 @@ function createBaselineTrial(trial, sectionTrialIndex, totalBaseline, trialNumbe
 // ===== SAMPLING TRIAL (Section 2) =====
 // Shows the passage with all nonce words as clickable buttons.
 // Each click reveals the real word and deducts points.
-// Participant clicks "Make Guess" when ready, then guess/confidence/feedback follow.
+// Participant clicks "Make a Guess" when ready, then guess/confidence/feedback follow.
 
 function createSamplingTrial(trial, sectionTrialIndex, trialNumber) {
     const realSentence   = trial.real_passage   || '';
@@ -618,13 +618,13 @@ function createSamplingTrial(trial, sectionTrialIndex, trialNumber) {
             html += `
                 </div>
                 <div class="controls">
-                    <button class="guess-button" id="guess-btn">Make Guess</button>
+                    <button class="guess-button" id="guess-btn">Make a Guess</button>
                 </div>
             `;
 
             return html;
         },
-        choices: ['Make Guess'],
+        choices: ['Make a Guess'],
         button_html: '<button class="jspsych-btn" style="display:none;">%choice%</button>',
         on_load: function () {
             document.querySelectorAll('.sampling-passage .word.clickable').forEach(wordEl => {
@@ -821,18 +821,27 @@ function createConfidenceRatingTrial() {
     };
 }
 
-// Feedback — shows the correct target word. Same for both sections.
+// Feedback — shows the participant's guess alongside the correct target word.
 function createFeedbackTrial(trial) {
     return {
         type: jsPsychHtmlKeyboardResponse,
         stimulus: function () {
+            const participantGuess = (trialSequenceData.guess || '').trim();
+            const correct = trial.target_word;
             return `
-                <div style="text-align: center; max-width: 600px; margin: 0 auto; padding: 40px;">
-                    <h2>The target word was:</h2>
-                    <p style="font-size: 36px; font-weight: bold; margin: 30px 0;">
-                        ${trial.target_word}
-                    </p>
-                    <p style="font-size: 14px; color: #666;">
+                <div style="text-align: center; max-width: 640px; margin: 0 auto; padding: 40px;">
+                    <h2 style="margin-bottom: 30px;">Good job!</h2>
+                    <div style="display: flex; justify-content: center; gap: 60px;">
+                        <div style="flex: 1; background: #f0f0f0; border-radius: 8px; padding: 20px;">
+                            <p style="font-size: 13px; color: #555; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 10px;">Your response</p>
+                            <p style="font-size: 30px; font-weight: bold; margin: 0;">${participantGuess || '—'}</p>
+                        </div>
+                        <div style="flex: 1; background: #f0f0f0; border-radius: 8px; padding: 20px;">
+                            <p style="font-size: 13px; color: #555; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 10px;">Correct response</p>
+                            <p style="font-size: 30px; font-weight: bold; margin: 0;">${correct}</p>
+                        </div>
+                    </div>
+                    <p style="font-size: 14px; color: #666; margin-top: 30px;">
                         <em>Press any key to continue</em>
                     </p>
                 </div>
@@ -919,7 +928,7 @@ const baselineInstructions1 = {
             <ol>
                 <li>You'll see a sentence with one <strong>bolded word</strong> - this is your target word to guess</li>
                 <li>Read the sentence carefully to understand the context</li>
-                <li>When you think you know the meaning of the bolded word, click "Make Guess"</li>
+                <li>When you think you know the meaning of the bolded word, KEEP YOUR GUESS IN MIND and click "Make a Guess"</li>
                 <li>Type your guess for the bolded word</li>
                 <li>Rate your confidence in your guess</li>
                 <li>You'll see feedback showing the correct answer</li>
@@ -940,7 +949,7 @@ const baselineInstructions2 = {
             <p style="margin-left: 20px; font-style: italic;">
                 "The glorp tafed in the deng zirp <strong>glosh</strong>."
             </p>
-            <p>Take some time to think about what "glosh" might mean and once you have your best ONE WORD GUESS, you can move forward.</p>
+            <p>Take some time to think about what "glosh" might mean and once you have your best ONE WORD GUESS, keep that guess in mind and click "Make a Guess".</p>
             <p style="margin-top: 30px;"><em>Press any key to continue</em></p>
         </div>
     `
@@ -1002,7 +1011,7 @@ const samplingInstructions1 = {
                 <li>Read the sentence.</li>
                 <li>Click words to reveal them if you need more context — but <strong> try to
                     reveal as few as possible! </strong> </li>
-                <li>When you are ready to guess, click <strong>Make Guess</strong>.</li>
+                <li>When you are ready to guess, click <strong>Make a Guess</strong>.</li>
                 <li>Type your best ONE-WORD guess for the <strong>bolded word</strong>.</li>
                 <li>Rate your confidence.</li>
                 <li>You will see the correct answer before moving on.</li>
@@ -1104,22 +1113,22 @@ const transitionScreen2 = {
 // --- Section 3 (Open-Ended) instructions ---
 
 const PHASE2_EXAMPLE_PASSAGE = [
-    "Ghoc and splync . Splync he had gwob gwob . We 're doing a dwoque neight down .",
-    "Knurt sneese to to to dwoque Neight Down dwazz down . It 's scis when you shroosh",
-    "the throck wherg about this maunch in and out gheint . Knurt . The prerk wrudd is a",
-    "dwazz . The prerk gheathe is a blalf which is fuite . Knurt . Why you wherg I did",
-    "that ? I do n't ghegging greash because they twieve more sweil . Sneese to grong the",
+    "Ghoc and splync. Splync he had gwob gwob. We're doing a dwoque neight down.",
+    "Knurt sneese to to to dwoque Neight Down dwazz down. It's scis when you shroosh",
+    "the throck wherg about this maunch in and out gheint. Knurt. The prerk wrudd is a",
+    "dwazz. The prerk gheathe is a blalf which is fuite. Knurt. Why you wherg I did",
+    "that? I don't ghegging greash because they twieve more sweil. Sneese to grong the",
     "dwazz dwazz but the twoofs off have scuthed about this phu plaiths the blalf Blaint",
-    "in-and-out Gheint is the rirm in-and-out Gheint . Thweil , you greash what knime 's",
-    "threrb a plause . Knurt , you greash sweil threrb plauses for gwal these drorbs Nalc",
-    "gwalph whuile of the Dwazz-Dwazz . Knurt . No , just no do n't gwalph whuile of it",
-    "crolt the shroosh crolt . The shroosh prerk wrudd is a blalf to is a dwazz . Knurt .",
-    "That 's dwoll a flurl vewn flurl vewn dwaul threrb it Now threrb an grune shreight .",
-    "That 's brulf . That 's sprate . We do n't we do n't twieve to yalt , you greash ,",
-    "fru . So , knurt , it was brulf uzz . Knurt , it was girchs . So yipe plaith we did",
-    "a dwoque splusk of dwoss . So this plaith we phleethed to do wrudd again and we did",
-    "it for yisque yisque The Screrf and whadd cloop of dwoan strilges , which you will",
-    "phiv why Thweil , we 've scuthed about it a thwipe whealt a cralph here. ",
+    "in-and-out Gheint is the rirm in-and-out Gheint. Thweil, you greash what knime's",
+    "threrb a plause. Knurt, you greash sweil threrb plauses for gwal these drorbs Nalc",
+    "gwalph whuile of the Dwazz-Dwazz. Knurt. No, just no don't gwalph whuile of it",
+    "crolt the shroosh crolt . The shroosh prerk wrudd is a blalf to is a dwazz. Knurt.",
+    "That's dwoll a flurl vewn flurl vewn dwaul threrb it Now threrb an grune shreight.",
+    "That's brulf. That's sprate. We don't we don't twieve to yalt, you greash,",
+    "fru. So, knurt, it was brulf uzz. Knurt, it was girchs. So yipe plaith we did",
+    "a dwoque splusk of dwoss. So this plaith we phleethed to do wrudd again and we did",
+    "it for yisque yisque The Screrf and whadd cloop of dwoan strilges, which you will",
+    "phiv why Thweil, we've scuthed about it a thwipe whealt a cralph here.",
 ].join(' ');
 
 const phase2Instructions1 = {
@@ -1177,8 +1186,9 @@ const phase2Instructions2 = {
                     Good response
                 </p>
                 <p style="margin: 0;">
-                    "A person talking to themselves about something they're trying 
-                    to convince themselves they're sure of (they're not)."
+                    "A person talking to someone else on a podcast. They are talking 
+                    about their beliefs and morals, agreeing that they do not partake in 
+                    certain things."
                 </p>
             </div>
 
