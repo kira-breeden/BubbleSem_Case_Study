@@ -395,6 +395,8 @@ function createHardcodedSamplingTrial(p, trialType, trialNumber) {
 
             for (let i = 0; i < jabberTokens.length; i++) {
                 const token = jabberTokens[i];
+                const nextIsPunct = (i + 1 < jabberTokens.length) && isPunct(jabberTokens[i + 1]);
+                const sep = nextIsPunct ? '' : ' ';
 
                 if (isPunct(token)) {
                     html += token;
@@ -403,11 +405,11 @@ function createHardcodedSamplingTrial(p, trialType, trialNumber) {
                 }
 
                 if (i === targetTokenIdx) {
-                    html += `<span class="word target">${token}</span> `;
+                    html += `<span class="word target">${token}</span>${sep}`;
                 } else if (isAutoRevealed(jabberTokens[i], realTokens[i])) {
-                    html += `<span class="word article">${realTokens[i]}</span> `;
+                    html += `<span class="word article">${realTokens[i]}</span>${sep}`;
                 } else {
-                    html += `<span class="word clickable" data-index="${i}">${token}</span> `;
+                    html += `<span class="word clickable" data-index="${i}">${token}</span>${sep}`;
                 }
             }
 
@@ -505,18 +507,21 @@ function createBaselineTrial(trial, sectionTrialIndex, totalBaseline, trialNumbe
                     continue;
                 }
 
+                const nextIsPunct = (i + 1 < jabberTokens.length) && isPunct(jabberTokens[i + 1]);
+                const sep = nextIsPunct ? '' : ' ';
+
                 if (i === targetTokenIdx) {
                     // Target word: always show as jabberwocky, bold
-                    html += `<span class="word target">${token}</span> `;
+                    html += `<span class="word target">${token}</span>${sep}`;
                 } else if (
                     unmaskedTokenIdxSet.has(i) ||
                     isAutoRevealed(jabberTokens[i], realTokens[i])
                 ) {
                     // Unmasked: show real English word
-                    html += `<span class="word">${realTokens[i]}</span> `;
+                    html += `<span class="word">${realTokens[i]}</span>${sep}`;
                 } else {
                     // Masked: show jabberwocky word (styled as nonce)
-                    html += `<span class="word nonce">${token}</span> `;
+                    html += `<span class="word nonce">${token}</span>${sep}`;
                 }
             }
 
@@ -599,6 +604,8 @@ function createSamplingTrial(trial, sectionTrialIndex, trialNumber) {
 
             for (let i = 0; i < jabberTokens.length; i++) {
                 const token = jabberTokens[i];
+                const nextIsPunct = (i + 1 < jabberTokens.length) && isPunct(jabberTokens[i + 1]);
+                const sep = nextIsPunct ? '' : ' ';
 
                 if (isPunct(token)) {
                     html += token;
@@ -607,11 +614,11 @@ function createSamplingTrial(trial, sectionTrialIndex, trialNumber) {
                 }
 
                 if (i === targetTokenIdx) {
-                    html += `<span class="word target">${token}</span> `;
+                    html += `<span class="word target">${token}</span>${sep}`;
                 } else if (isAutoRevealed(jabberTokens[i], realTokens[i])) {
-                    html += `<span class="word article">${realTokens[i]}</span> `;
+                    html += `<span class="word article">${realTokens[i]}</span>${sep}`;
                 } else {
-                    html += `<span class="word clickable" data-index="${i}">${token}</span> `;
+                    html += `<span class="word clickable" data-index="${i}">${token}</span>${sep}`;
                 }
             }
 
@@ -829,7 +836,7 @@ function createFeedbackTrial(trial) {
             const participantGuess = (trialSequenceData.guess || '').trim();
             const correct = trial.target_word;
             return `
-                <div style="text-align: center; max-width: 640px; margin: 0 auto; padding: 40px;">
+                <div style="text-align: center; max-width: 860px; margin: 0 auto; padding: 40px;">
                     <h2 style="margin-bottom: 30px;">Good job!</h2>
                     <div style="display: flex; justify-content: center; gap: 60px;">
                         <div style="flex: 1; background: #f0f0f0; border-radius: 8px; padding: 20px;">
