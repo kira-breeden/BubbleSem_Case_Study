@@ -836,7 +836,7 @@ function createFeedbackTrial(trial) {
             const participantGuess = (trialSequenceData.guess || '').trim();
             const correct = trial.target_word;
             return `
-                <div style="text-align: center; max-width: 860px; margin: 0 auto; padding: 40px;">
+                <div style="text-align: center; max-width: 1060px; margin: 0 auto; padding: 40px;">
                     <h2 style="margin-bottom: 30px;">Good job!</h2>
                     <div style="display: flex; justify-content: center; gap: 60px;">
                         <div style="flex: 1; background: #f0f0f0; border-radius: 8px; padding: 20px;">
